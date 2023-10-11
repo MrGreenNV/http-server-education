@@ -32,7 +32,7 @@ public class ConnectionHandler {
             </html>
             """;
 
-    private Socket socket;
+    private final Socket socket;
 
     /**
      * Создает объект ConnectionHandler и инициализирует Socket.
