@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
  */
 public class ConnectionHandler {
 
-    /** Заголовок HTTP ответа от сервера. */
+    /** Заголовок HTTP ответа от сервера в формате HTML страницы. */
     private static final String HTTP_HEADERS = """
             HTTP/1.1 200 OK
             Date: Mon, 18 Sep 2023 14:08:55 +0200
@@ -17,8 +17,27 @@ public class ConnectionHandler {
             Content-Type: text/html
             """;
 
-    /** Тело HTTP ответа от сервера. */
-    private static final String HTTP_BODY = """
+    /** Заголовок HTTP ответа от сервера в виде вложения TXT файла. */
+    private static final String HTTP_HEADERS_TEXT = """
+            HTTP/1.1 200 OK
+            Date: Mon, 18 Sep 2023 14:08:55 +0200
+            HttpServer: Simple Webserver
+            Content-Length: 38
+            Content-Type: text/plain
+            Content-Disposition: attachment; filename=file.txt
+            """;
+
+    /** Заголовок HTTP ответа от сервера в формате JSON. */
+    private static final String HTTP_HEADERS_JSON = """
+            HTTP/1.1 200 OK
+            Date: Mon, 18 Sep 2023 14:08:55 +0200
+            HttpServer: Simple Webserver
+            Content-Length: 50
+            Content-Type: application/json
+            """;
+
+    /** Тело HTTP ответа от сервера для отображения HTML страницы. */
+    private static final String HTTP_BODY_HTML = """
             <!DOCTYPE html>
             <html lang="en">
             <head>
@@ -32,6 +51,17 @@ public class ConnectionHandler {
             </html>
             """;
 
+    /** Тело HTTP ответа от сервера в формате JSON. */
+    private static final String HTTP_BODY_JSON = """
+            {
+                "message": "Hi! This is a simple line in JSON."
+            }
+            """;
+
+    /** Тело HTTP ответа от сервера во вложенном TXT файле. */
+    private static final String HTTP_BODY_TEXT = "Hi! This is a simple line in TXT file.";
+
+    /** Сокет */
     private final Socket socket;
 
     /**
@@ -60,8 +90,11 @@ public class ConnectionHandler {
                     new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.US_ASCII)
             );
 
-            parseRequest(inputStreamReader);
-            writeResponse(outputStreamWriter);
+            switch (parseRequest(inputStreamReader)) {
+                case "application/json" -> writeJSONResponse(outputStreamWriter);
+                case "text/html" -> writeHTMLResponse(outputStreamWriter);
+                default -> writeTEXTResponse(outputStreamWriter);
+            }
 
         } catch (IOException ioEx) {
             throw new RuntimeException(ioEx);
@@ -73,26 +106,56 @@ public class ConnectionHandler {
      * @param inputStreamReader Поток для чтения данных.
      * @throws IOException Выбрасывает, если возникает ошибка при чтении данных.
      */
-    private void parseRequest(BufferedReader inputStreamReader) throws IOException {
+    private String parseRequest(BufferedReader inputStreamReader) throws IOException {
+        String acceptHeader = "";
         var request = inputStreamReader.readLine();
 
         while (request != null && !request.isEmpty()) {
+            if (request.contains("Accept:")) {
+                acceptHeader = request.substring(7).trim();
+            }
             System.out.println(request);
             request = inputStreamReader.readLine();
         }
+        return acceptHeader;
     }
 
     /**
-     * Формирует ответ в поток записи данных.
+     * Формирует ответ в поток записи данных и передает в виде HTML страницы.
      * @param outputStreamWriter Поток для записи данных.
      * @throws IOException Выбрасывает, если возникает ошибка при записи данных.
      */
-    private void writeResponse(BufferedWriter outputStreamWriter) throws IOException {
+    private void writeHTMLResponse(BufferedWriter outputStreamWriter) throws IOException {
         outputStreamWriter.write(HTTP_HEADERS);
         outputStreamWriter.newLine();
-        outputStreamWriter.write(HTTP_BODY);
+        outputStreamWriter.write(HTTP_BODY_HTML);
         outputStreamWriter.newLine();
         outputStreamWriter.flush();
     }
 
+    /**
+     * Формирует ответ в поток записи данных и передает в виде JSOM.
+     * @param outputStreamWriter Поток для записи данных.
+     * @throws IOException Выбрасывает, если возникает ошибка при записи данных.
+     */
+    private void writeJSONResponse(BufferedWriter outputStreamWriter) throws IOException {
+        outputStreamWriter.write(HTTP_HEADERS_JSON);
+        outputStreamWriter.newLine();
+        outputStreamWriter.write(HTTP_BODY_JSON);
+        outputStreamWriter.newLine();
+        outputStreamWriter.flush();
+    }
+
+    /**
+     * Формирует ответ в поток записи данных и передает в TXT файла.
+     * @param outputStreamWriter Поток для записи данных.
+     * @throws IOException Выбрасывает, если возникает ошибка при записи данных.
+     */
+    private void writeTEXTResponse(BufferedWriter outputStreamWriter) throws IOException {
+        outputStreamWriter.write(HTTP_HEADERS_TEXT);
+        outputStreamWriter.newLine();
+        outputStreamWriter.write(HTTP_BODY_TEXT);
+        outputStreamWriter.newLine();
+        outputStreamWriter.flush();
+    }
 }
